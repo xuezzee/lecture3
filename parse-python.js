@@ -1,6 +1,6 @@
 const python = require('lezer-python');
 
-const input = "x = 10";
+const input = "x = 10\ny=10";
 
 const tree = python.parser.parse(input);
 
