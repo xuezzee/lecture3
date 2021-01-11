@@ -1,6 +1,7 @@
+import { statSync } from 'fs';
 import wabt from 'wabt';
 import {Stmt, Expr} from './ast';
-import {parseProgram} from './parser';
+import {parseProgram, traverseExpr} from './parser';
 
 export async function run(watSource : string) : Promise<number> {
   const wabtApi = await wabt();
@@ -13,18 +14,37 @@ export async function run(watSource : string) : Promise<number> {
   // This next line is wasm-interp
   return (wasmModule.instance.exports as any)._start();
 }
+
+(window as any)["runWat"] = run;
+
 export function codeGenExpr(expr : Expr) : Array<string> {
   switch(expr.tag) {
     case "id": return [`(local.get $${expr.name})`];
     case "number": return [`(i32.const ${expr.value})`];
+    case "call":
+      var valStmts = codeGenExpr(expr.arguments[0]);
+      valStmts.push(`(call $${expr.name})`);
+      return valStmts;
+      
   }
 }
 export function codeGenStmt(stmt : Stmt) : Array<string> {
   switch(stmt.tag) {
+    case "define":
+      console.log(stmt);
+      var params = stmt.parameters.map(p => `(param $${p.name} i32)`).join(" ");
+      var stmts = stmt.body.map(codeGenStmt).flat();
+      var stmtsBody = stmts.join("\n");
+      return [`(func $${stmt.name} ${params} (result i32) ${stmtsBody})`];
+    case "return":
+      console.log(stmt);
+      var valStmts = codeGenExpr(stmt.value);
+      valStmts.push("return");
+      return valStmts;
     case "assign":
-      const valstmts = codeGenExpr(stmt.value);
-      valstmts.push(`(local.set $${stmt.name})`);
-      return valstmts;
+      var valStmts = codeGenExpr(stmt.value);
+      valStmts.push(`(local.set $${stmt.name})`);
+      return valStmts;
     case "expr":
       const result = codeGenExpr(stmt.expr);
       result.push("(local.set $scratch)");
@@ -37,11 +57,18 @@ export function compile(source : string) : string {
   ast.forEach((stmt) => {
     if(stmt.tag === "assign") { vars.push(stmt.name); }
   });
+  const funs : Array<string> = [];
+  ast.forEach((stmt, i) => {
+    if(stmt.tag === "define") { funs.push(codeGenStmt(stmt).join("\n")); }
+  });
+  const allFuns = funs.join("\n\n");
+  const stmts = ast.filter((stmt) => stmt.tag !== "define");
+  
   const varDecls : Array<string> = [];
   varDecls.push(`(local $scratch i32)`);
   vars.forEach(v => { varDecls.push(`(local $${v} i32)`); });
 
-  const allStmts = ast.map(codeGenStmt).flat();
+  const allStmts = stmts.map(codeGenStmt).flat();
   const ourCode = varDecls.concat(allStmts).join("\n");
 
   const lastStmt = ast[ast.length - 1];
@@ -55,6 +82,7 @@ export function compile(source : string) : string {
 
   return `
     (module
+      ${allFuns}
       (func (export "_start") ${retType}
         ${ourCode}
         ${retVal}
