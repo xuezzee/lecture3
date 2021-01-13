@@ -25,19 +25,16 @@ export function codeGenExpr(expr : Expr) : Array<string> {
       var valStmts = codeGenExpr(expr.arguments[0]);
       valStmts.push(`(call $${expr.name})`);
       return valStmts;
-      
   }
 }
 export function codeGenStmt(stmt : Stmt) : Array<string> {
   switch(stmt.tag) {
     case "define":
-      console.log(stmt);
       var params = stmt.parameters.map(p => `(param $${p.name} i32)`).join(" ");
       var stmts = stmt.body.map(codeGenStmt).flat();
       var stmtsBody = stmts.join("\n");
       return [`(func $${stmt.name} ${params} (result i32) ${stmtsBody})`];
     case "return":
-      console.log(stmt);
       var valStmts = codeGenExpr(stmt.value);
       valStmts.push("return");
       return valStmts;
