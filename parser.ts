@@ -86,6 +86,9 @@ export function traverseExpr(s : string, t : TreeCursor) : Expr {
       t.firstChild(); // Focus open paren
       t.nextSibling();
       var value = traverseExpr(s, t);
-      return { tag: "call", name, arguments: [value]};
+      var result : Expr = { tag: "call", name, arguments: [value]};
+      t.parent();
+      t.parent();
+      return result;
   }
 }
