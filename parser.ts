@@ -119,11 +119,23 @@ export function traverseExpr(s : string, t : TreeCursor) : Expr {
       var name = s.substring(t.from, t.to);
       t.nextSibling(); // Focus ArgList
       t.firstChild(); // Focus open paren
-      t.nextSibling();
-      var value = traverseExpr(s, t);
-      var result : Expr = { tag: "call", name, arguments: [value]};
-      t.parent();
+      var args = traverseArguments(t, s);
+      var result : Expr = { tag: "call", name, arguments: args};
       t.parent();
       return result;
   }
+}
+
+export function traverseArguments(c : TreeCursor, s : string) : Expr[] {
+  c.firstChild();  // Focuses on open paren
+  const args = [];
+  c.nextSibling();
+  while(c.type.name !== ")") {
+    let expr = traverseExpr(s, c);
+    args.push(expr);
+    c.nextSibling(); // Focuses on either "," or ")"
+    c.nextSibling(); // Focuses on a VariableName
+  } 
+  c.parent();       // Pop to ArgList
+  return args;
 }

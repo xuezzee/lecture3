@@ -8,8 +8,21 @@ export function tcExpr(e : Expr, functions : FunctionsEnv, variables : BodyEnv) 
     case "number": return "int";
     case "id": return variables.get(e.name);
     case "call":
+      if(!functions.has(e.name)) {
+        throw new Error(`function ${e.name} not found`);
+      }
 
-      return "none";
+      const [args, ret] = functions.get(e.name);
+      if(args.length !== e.arguments.length) {
+        throw new Error(`Expected ${args.length} arguments but got ${e.arguments.length}`);
+      }
+
+      args.forEach((a, i) => {
+        const argtyp = tcExpr(e.arguments[i], functions, variables);
+        if(a !== argtyp) { throw new Error(`Got ${e.arguments[i]} as argument ${i + 1}, expected ${a}`); }
+      });
+
+      return ret;
   }
 }
 
@@ -28,7 +41,7 @@ export function tcStmt(s : Stmt, functions : FunctionsEnv, variables : BodyEnv, 
     case "define": {
       const bodyvars = new Map<string, Type>(variables.entries());
       s.parameters.forEach(p => { bodyvars.set(p.name, p.typ)});
-      tcStmt(s.body[0], functions, variables, s.ret);
+      tcStmt(s.body[0], functions, bodyvars, s.ret);
       return;
     }
     case "expr": {

@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       output.setAttribute("style", "color: black");
     }
     catch(e) {
+      console.error(e)
       output.textContent = String(e);
       output.setAttribute("style", "color: red");
     }

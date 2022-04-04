@@ -1,7 +1,7 @@
-import { statSync } from 'fs';
 import wabt from 'wabt';
 import {Stmt, Expr} from './ast';
 import {parseProgram, traverseExpr} from './parser';
+import { tcProgram } from './tc';
 
 export async function run(watSource : string) : Promise<number> {
   const wabtApi = await wabt();
@@ -22,7 +22,7 @@ export function codeGenExpr(expr : Expr) : Array<string> {
     case "id": return [`(local.get $${expr.name})`];
     case "number": return [`(i32.const ${expr.value})`];
     case "call":
-      var valStmts = codeGenExpr(expr.arguments[0]);
+      const valStmts = expr.arguments.map(codeGenExpr).flat();
       valStmts.push(`(call $${expr.name})`);
       return valStmts;
   }
@@ -50,6 +50,7 @@ export function codeGenStmt(stmt : Stmt) : Array<string> {
 }
 export function compile(source : string) : string {
   const ast = parseProgram(source);
+  tcProgram(ast);
   const vars : Array<string> = [];
   ast.forEach((stmt) => {
     if(stmt.tag === "assign") { vars.push(stmt.name); }
