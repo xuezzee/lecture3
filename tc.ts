@@ -19,7 +19,7 @@ export function tcExpr(e : Expr, functions : FunctionsEnv, variables : BodyEnv) 
 
       args.forEach((a, i) => {
         const argtyp = tcExpr(e.arguments[i], functions, variables);
-        if(a !== argtyp) { throw new Error(`Got ${e.arguments[i]} as argument ${i + 1}, expected ${a}`); }
+        if(a !== argtyp) { throw new Error(`Got ${argtyp} as argument ${i + 1}, expected ${a}`); }
       });
 
       return ret;
