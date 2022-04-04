@@ -1,6 +1,6 @@
 import { TreeCursor } from 'lezer';
 import {parser} from 'lezer-python';
-import {Parameter, Stmt, Expr} from './ast';
+import {Parameter, Stmt, Expr, Type} from './ast';
 
 export function parseProgram(source : string) : Array<Stmt> {
   const t = parser.parse(source).cursor();
@@ -51,7 +51,15 @@ export function traverseStmt(s : string, t : TreeCursor) : Stmt {
       var name = s.substring(t.from, t.to);
       t.nextSibling(); // Focus on ParamList
       var parameters = traverseParameters(s, t)
-      t.nextSibling(); // Focus on Body
+      t.nextSibling(); // Focus on Body or TypeDef
+      let ret : Type = "none";
+      let maybeTD = t;
+      if(maybeTD.type.name === "TypeDef") {
+        t.firstChild();
+        ret = traverseType(s, t);
+        t.parent();
+      }
+      t.nextSibling(); // Focus on single statement (for now)
       t.firstChild();  // Focus on :
       t.nextSibling(); // Focus on single statement (for now)
       var body = [traverseStmt(s, t)];
@@ -59,18 +67,45 @@ export function traverseStmt(s : string, t : TreeCursor) : Stmt {
       t.parent();      // Pop to FunctionDefinition
       return {
         tag: "define",
-        name, parameters, body
+        name, parameters, body, ret
       }
       
   }
 }
 
+export function traverseType(s : string, t : TreeCursor) : Type {
+  switch(t.type.name) {
+    case "VariableName":
+      const name = s.substring(t.from, t.to);
+      if(name !== "int") {
+        throw new Error("Unknown type: " + name)
+      }
+      return name;
+    default:
+      throw new Error("Unknown type: " + t.type.name)
+
+  }
+}
+
 export function traverseParameters(s : string, t : TreeCursor) : Array<Parameter> {
   t.firstChild();  // Focuses on open paren
+  const parameters = []
   t.nextSibling(); // Focuses on a VariableName
-  let name = s.substring(t.from, t.to);
-  t.parent();      // Pop to ParamList
-  return [{ name }]
+  while(t.type.name !== ")") {
+    let name = s.substring(t.from, t.to);
+    t.nextSibling(); // Focuses on "TypeDef", hopefully, or "," if mistake
+    let nextTagName = t.type.name; // NOTE(joe): a bit of a hack so the next line doesn't if-split
+    if(nextTagName !== "TypeDef") { throw new Error("Missed type annotation for parameter " + name)};
+    t.firstChild();  // Enter TypeDef
+    t.nextSibling(); // Focuses on type itself
+    let typ = traverseType(s, t);
+    t.parent();
+    t.nextSibling(); // Move on to comma or ")"
+    parameters.push({name, typ});
+    t.nextSibling(); // Focuses on a VariableName
+  }
+  t.parent();       // Pop to ParamList
+  return parameters;
 }
 
 export function traverseExpr(s : string, t : TreeCursor) : Expr {

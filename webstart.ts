@@ -5,11 +5,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const userCode = document.getElementById("user-code") as HTMLTextAreaElement;
   runButton.addEventListener("click", async () => {
     const program = userCode.value;
-    const wat = compile(program);
-    const code = document.getElementById("generated-code");
-    code.textContent = wat;
     const output = document.getElementById("output");
     try {
+      const wat = compile(program);
+      const code = document.getElementById("generated-code");
+      code.textContent = wat;
       const result = await run(wat);
       output.textContent = String(result);
       output.setAttribute("style", "color: black");
