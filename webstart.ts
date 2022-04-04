@@ -1,5 +1,6 @@
 import {compile, run} from './compiler';
 
+
 document.addEventListener("DOMContentLoaded", async () => {
   const runButton = document.getElementById("run");
   const userCode = document.getElementById("user-code") as HTMLTextAreaElement;
@@ -19,5 +20,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       output.textContent = String(e);
       output.setAttribute("style", "color: red");
     }
+  });
+
+  userCode.value = localStorage.getItem("program");
+  userCode.addEventListener("keypress", async() => {
+    localStorage.setItem("program", userCode.value);
   });
 });
