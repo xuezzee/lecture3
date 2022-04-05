@@ -33,7 +33,9 @@ export function codeGenStmt(stmt : Stmt) : Array<string> {
       var params = stmt.parameters.map(p => `(param $${p.name} i32)`).join(" ");
       var stmts = stmt.body.map(codeGenStmt).flat();
       var stmtsBody = stmts.join("\n");
-      return [`(func $${stmt.name} ${params} (result i32) ${stmtsBody})`];
+      return [`(func $${stmt.name} ${params} (result i32)
+        (local $scratch i32)
+        ${stmtsBody})`];
     case "return":
       var valStmts = codeGenExpr(stmt.value);
       valStmts.push("return");
