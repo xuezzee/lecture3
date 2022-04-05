@@ -30,12 +30,13 @@ export function codeGenExpr(expr : Expr) : Array<string> {
 export function codeGenStmt(stmt : Stmt) : Array<string> {
   switch(stmt.tag) {
     case "define":
-      var params = stmt.parameters.map(p => `(param $${p.name} i32)`).join(" ");
-      var stmts = stmt.body.map(codeGenStmt).flat();
-      var stmtsBody = stmts.join("\n");
+      const params = stmt.parameters.map(p => `(param $${p.name} i32)`).join(" ");
+      const stmts = stmt.body.map(codeGenStmt).flat();
+      const stmtsBody = stmts.join("\n");
       return [`(func $${stmt.name} ${params} (result i32)
         (local $scratch i32)
-        ${stmtsBody})`];
+        ${stmtsBody}
+        (i32.const 0))`];
     case "return":
       var valStmts = codeGenExpr(stmt.value);
       valStmts.push("return");

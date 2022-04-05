@@ -61,8 +61,10 @@ export function traverseStmt(s : string, t : TreeCursor) : Stmt {
       }
       t.nextSibling(); // Focus on single statement (for now)
       t.firstChild();  // Focus on :
-      t.nextSibling(); // Focus on single statement (for now)
-      var body = [traverseStmt(s, t)];
+      const body = [];
+      while(t.nextSibling()) {
+        body.push(traverseStmt(s, t));
+      }
       t.parent();      // Pop to Body
       t.parent();      // Pop to FunctionDefinition
       return {

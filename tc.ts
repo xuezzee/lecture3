@@ -41,7 +41,7 @@ export function tcStmt(s : Stmt, functions : FunctionsEnv, variables : BodyEnv, 
     case "define": {
       const bodyvars = new Map<string, Type>(variables.entries());
       s.parameters.forEach(p => { bodyvars.set(p.name, p.typ)});
-      tcStmt(s.body[0], functions, bodyvars, s.ret);
+      s.body.forEach(bs => tcStmt(bs, functions, bodyvars, s.ret));
       return;
     }
     case "expr": {
