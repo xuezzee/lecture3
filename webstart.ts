@@ -1,5 +1,22 @@
 import {compile, run} from './compiler';
+import {runWASM} from "./runner";
 
+
+// var importObject = {
+//   imports: {
+//     print: (arg : any) => {
+//       console.log("Logging from WASM: ", arg);
+//       const elt = document.createElement("pre");
+//       document.getElementById("output").appendChild(elt);
+//       elt.innerText = arg;
+//       return arg;
+//     },
+//     abs: Math.abs,
+//     max: Math.max,
+//     min: Math.min,
+//     pow: Math.pow
+//   },
+// };
 
 document.addEventListener("DOMContentLoaded", async () => {
   const runButton = document.getElementById("run");
@@ -26,4 +43,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   userCode.addEventListener("keypress", async() => {
     localStorage.setItem("program", userCode.value);
   });
+  // runWASM(userCode.value, {importObject}).then()
 });

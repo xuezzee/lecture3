@@ -1,9 +1,13 @@
-import { TreeCursor } from 'lezer';
+import {TreeCursor} from 'lezer';
 import {parser} from 'lezer-python';
-import {Parameter, Stmt, Expr, Type} from './ast';
+import {BinOp, Expr, Literal, Parameter, Stmt, Type} from './ast';
+import {stringifyTree} from "./treeprinter";
 
 export function parseProgram(source : string) : Array<Stmt> {
   const t = parser.parse(source).cursor();
+  console.log("-------------------------------------")
+  console.log(stringifyTree(t, source, 0))
+  console.log("-------------------------------------")
   return traverseStmts(source, t);
 }
 
@@ -71,7 +75,78 @@ export function traverseStmt(s : string, t : TreeCursor) : Stmt {
         tag: "define",
         name, parameters, body, ret
       }
-      
+    case "IfStatement":
+      t.firstChild();
+      var bodies = [];
+      var conds = [];
+      var elifs = [];
+      var elses = [];
+      t.nextSibling()
+      var cond = traverseExpr(s, t);
+      var bodyStmts = [];
+      // t.firstChild();
+      t.nextSibling();
+      t.firstChild();
+      while (t.nextSibling()) {
+        bodyStmts.push(traverseStmt(s, t));
+      }
+      t.parent();
+      // t.parent();
+      bodies.push(bodyStmts);
+      conds.push(cond);
+      // t.parent();
+
+      while (t.nextSibling()) {
+        if (s.substring(t.from, t.to) == "elif") {
+          elifs.push(traverseStmt(s, t));
+        } else if (s.substring(t.from, t.to) == "else") {
+          elses.push(traverseStmt(s, t));
+        }
+      }
+      // break;
+      t.parent();
+      return { tag: "if", condition: cond, body: bodyStmts, elifs: elifs, elses: elses }
+    case "elif":
+      t.nextSibling();
+      var cond = traverseExpr(s, t);
+      var bodyStmts = []
+      t.nextSibling();
+      t.firstChild();
+      while (t.nextSibling()) {
+        bodyStmts.push(traverseStmt(s, t));
+      }
+      t.parent();
+      return { tag: "elif", condition: cond, body: bodyStmts }
+    case "else":
+      t.nextSibling();
+      t.firstChild();
+      var bodyStmts = []
+      while (t.nextSibling()) {
+        bodyStmts.push(traverseStmt(s, t));
+      }
+      t.parent();
+      return { tag: "else", body: bodyStmts }
+    case "PassStatement":
+      return {
+        tag: "pass"
+      }
+    case "WhileStatement":
+      t.firstChild();
+      t.nextSibling();
+      var cond = traverseExpr(s, t);
+      var bodyStmts = [];
+      t.nextSibling();
+      t.firstChild();
+      // t.nextSibling();
+      // t.firstChild();
+      // t.nextSibling()
+      while(t.nextSibling()) {
+        bodyStmts.push(traverseStmt(s, t));
+      }
+      t.parent();
+      t.parent();
+      // t.parent();
+      return { tag: "while", condition: cond, body: bodyStmts};
   }
 }
 
@@ -113,7 +188,21 @@ export function traverseParameters(s : string, t : TreeCursor) : Array<Parameter
 export function traverseExpr(s : string, t : TreeCursor) : Expr {
   switch(t.type.name) {
     case "Number":
-      return { tag: "number", value: Number(s.substring(t.from, t.to)) };
+      return {
+        tag: "number",
+        value: Number(s.substring(t.from, t.to)),
+        type: "int"
+      };
+    case "Boolean":
+      var boolValue : Literal
+      if (s.substring(t.from, t.to) == "True") {boolValue = {tag: "bool", value: "true"}}
+      else if (s.substring(t.from, t.to) == "False") {boolValue = {tag: "bool", value: "false"}}
+      return {
+        tag: "boolean",
+        value: boolValue,
+        type: "boolean"
+      }
+    case "None":
     case "VariableName":
       return { tag: "id", name: s.substring(t.from, t.to) };
     case "CallExpression":
@@ -122,9 +211,90 @@ export function traverseExpr(s : string, t : TreeCursor) : Expr {
       t.nextSibling(); // Focus ArgList
       t.firstChild(); // Focus open paren
       var args = traverseArguments(t, s);
-      var result : Expr = { tag: "call", name, arguments: args};
+      var result : Expr;
+      if (name === "abs" || name === "print") {
+        result = {tag: "builtin1", name: name, arg: args[0]}
+      } else if (name === "max" || name === "min" || name === "pow")  {
+        result = {tag: "builtin2", name: name, arg1: args[0], arg2: args[1]}
+      } else {
+        result = { tag: "call", name, arguments: args};
+      }
       t.parent();
       return result;
+    case "UnaryExpression":
+      t.firstChild();
+      var uniOp = s.substring(t.from, t.to);
+      switch (uniOp) {
+        case "-":
+          t.nextSibling();
+          var num = Number(uniOp + s.substring(t.from, t.to));
+          if (isNaN(num))
+            throw new Error("PARSE ERROR: unary operation failed");
+          var ret : Expr = { tag: "number", value: num, type: "int" };
+          break;
+        case "not":
+          t.nextSibling();
+          var ret : Expr = { tag: "uniexpr", value: traverseExpr(s, t)};
+          t.parent();
+          break;
+        default:
+          throw new Error("PARSE ERROR: unsupported unary operator");
+      }
+      t.parent();
+      // const num = Number(s.substring(c.from, c.to));
+      return ret;
+    case "BinaryExpression":
+      t.firstChild();
+      const left = traverseExpr(s, t);
+      t.nextSibling();
+      var op : BinOp;
+      switch (s.substring(t.from, t.to)) {
+        case "+":
+          op = BinOp.Plus;
+          break;
+        case "-":
+          op = BinOp.Mins;
+          break;
+        case "*":
+          op = BinOp.Mul;
+          break;
+        case ">":
+          op = BinOp.Gt;
+          break;
+        case "<":
+          op = BinOp.Lt;
+          break;
+        case ">=":
+          op = BinOp.Gte;
+          break;
+        case "<=":
+          op = BinOp.Lte;
+          break;
+        case "==":
+          op = BinOp.Eq;
+          break;
+        case "!=":
+          op = BinOp.Neq;
+          break;
+        case "//":
+          op = BinOp.IDiv;
+          break;
+        case "%":
+          op = BinOp.Mod;
+          break;
+        default:
+          throw new Error("PARSE ERROR: unknown binary operator");
+      }
+      t.nextSibling();
+      const right = traverseExpr(s, t);
+      t.parent();
+      return { tag: "binexpr", op: op, left: left, right: right};
+    case "ParenthesizedExpression":
+      t.firstChild()
+      t.nextSibling()
+      var v = traverseExpr(s, t)
+      t.parent()
+      return { tag: "parexpr", value: v}
   }
 }
 
